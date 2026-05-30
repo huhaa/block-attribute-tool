@@ -18,12 +18,41 @@ import win32com.client
 # ---------------------------------------------------------------------------
 # 不同 AutoCAD 版本的 ProgID 候选，优先匹配已安装的最新版
 _PROG_IDS = [
-    "AutoCAD.Application.26.1",  # AutoCAD 2026
-    "AutoCAD.Application.26",    # AutoCAD 2025
-    "AutoCAD.Application.25.1",  # AutoCAD 2024
-    "AutoCAD.Application.25",    # AutoCAD 2023
-    "AutoCAD.Application",       # 通用（2016 及更早版本均支持）
+    "AutoCAD.Application.26.1",  # 2026
+    "AutoCAD.Application.26",    # 2025
+    "AutoCAD.Application.25.1",  # 2024
+    "AutoCAD.Application.25",    # 2023
+    "AutoCAD.Application.24.1",  # 2022
+    "AutoCAD.Application.24",    # 2021
+    "AutoCAD.Application.23.1",  # 2020
+    "AutoCAD.Application.23",    # 2019
+    "AutoCAD.Application.22",    # 2018
+    "AutoCAD.Application.21",    # 2017
+    "AutoCAD.Application.20.1",  # 2016
+    "AutoCAD.Application.20",    # 2015
+    "AutoCAD.Application",       # 通用兜底
 ]
+
+
+def _find_running_autocad():
+    """遍历 ROT 查找任意正在运行的 AutoCAD 实例（ProgID 无关）。"""
+    import pythoncom
+    try:
+        rot = pythoncom.GetRunningObjectTable()
+        enum = rot.EnumRunning()
+        while True:
+            try:
+                monikers = enum.Next(1)
+                if not monikers:
+                    break
+                display = monikers[0].GetDisplayName(None, None)
+                if "autocad" in display.lower():
+                    return rot.GetObject(monikers[0])
+            except Exception:
+                break
+    except Exception:
+        pass
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +92,11 @@ class CADEngine:
             except Exception:
                 continue
 
-        # 第二步：没找到运行中的实例，才启动新的
+        # 第二步：若 ProgID 匹配不到，遍历 ROT 直接查找任意 AutoCAD
+        if self.acad is None:
+            self.acad = _find_running_autocad()
+
+        # 第三步：没找到运行中的实例，才启动新的
         if self.acad is None:
             for prog_id in _PROG_IDS:
                 try:
