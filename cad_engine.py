@@ -48,16 +48,24 @@ class CADEngine:
     # ----- 连接 / 断开 ------------------------------------------------
 
     def connect(self) -> bool:
-        """连接到正在运行的 AutoCAD，或启动新实例。"""
+        """连接到正在运行的 AutoCAD，或启动新实例。
+
+        优先连接已运行的实例（任意版本），避免启动错误版本。
+        """
         self._owns_com = True
         pythoncom.CoInitialize()
 
-        # 尝试各种 ProgID
+        # 第一步：在所有 ProgID 中搜索已运行的实例
         for prog_id in _PROG_IDS:
             try:
                 self.acad = win32com.client.GetActiveObject(prog_id)
                 break
             except Exception:
+                continue
+
+        # 第二步：没找到运行中的实例，才启动新的
+        if self.acad is None:
+            for prog_id in _PROG_IDS:
                 try:
                     self.acad = win32com.client.Dispatch(prog_id)
                     break
