@@ -22,7 +22,7 @@ _PROG_IDS = [
     "AutoCAD.Application.26",    # AutoCAD 2025
     "AutoCAD.Application.25.1",  # AutoCAD 2024
     "AutoCAD.Application.25",    # AutoCAD 2023
-    "AutoCAD.Application",       # 通用
+    "AutoCAD.Application",       # 通用（2016 及更早版本均支持）
 ]
 
 

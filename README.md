@@ -13,7 +13,7 @@
 ## 环境要求
 
 - Windows 10/11
-- AutoCAD 2023–2026
+- AutoCAD 2016 及以上版本（COM 接口兼容）
 - [Python 3.12+](https://www.python.org/)
 
 ## 安装
