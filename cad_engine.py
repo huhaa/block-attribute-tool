@@ -216,6 +216,65 @@ class CADEngine:
             pass
         return None
 
+    # ----- 内部：遍历空间实体 ------------------------------------------
+
+    def _collect_from_space(
+        self,
+        block,
+        required_set: set,
+        values: Dict[str, str],
+    ) -> Tuple[int, int]:
+        """遍历一个空间（模型/布局）中匹配的块参照并更新属性。
+
+        Args:
+            block: 可遍历的 Block 对象（ModelSpace 或 Layout.Block）
+            required_set: 必须匹配的属性标签集合
+            values: {tag: new_value} 映射
+
+        Returns:
+            (updated, skipped)
+        """
+        updated = 0
+        skipped = 0
+        count = block.Count
+
+        for i in range(count):
+            try:
+                entity = block.Item(i)
+                if entity.ObjectName != "AcDbBlockReference":
+                    continue
+            except Exception:
+                continue  # 跳过无效实体（已擦除/代理对象/自定义对象等）
+
+            try:
+                attrs = entity.GetAttributes()
+            except Exception:
+                continue
+
+            if attrs is None or (hasattr(attrs, "__len__") and len(attrs) == 0):
+                skipped += 1
+                continue
+
+            block_tags: set = set()
+            attr_map: Dict[str, object] = {}
+            for attr in attrs:
+                tag = str(attr.TagString)
+                block_tags.add(tag)
+                attr_map[tag] = attr
+
+            if required_set.issubset(block_tags):
+                for tag, new_value in values.items():
+                    if tag in attr_map:
+                        try:
+                            attr_map[tag].TextString = new_value
+                        except Exception:
+                            pass  # 常量属性不可写
+                updated += 1
+            else:
+                skipped += 1
+
+        return updated, skipped
+
     # ----- 批量更新（单个 DWG） ---------------------------------------
 
     def update_blocks_in_dwg(
@@ -223,6 +282,8 @@ class CADEngine:
         dwg_path: str,
         required_tags: List[str],
         values: Dict[str, str],
+        include_model: bool = True,
+        include_layouts: bool = False,
     ) -> Dict:
         """在单个 DWG 中查找属性标签覆盖 required_tags 的所有块并更新。
 
@@ -252,46 +313,44 @@ class CADEngine:
                     should_close = True
                     time.sleep(0.6)  # 等文档内部初始化完成
 
-                step = "ModelSpace"
-                model_space = doc.ModelSpace
-                count = model_space.Count
-
                 updated = 0
                 skipped = 0
 
-                for i in range(count):
-                    step = f"entity[{i}]"
-                    entity = model_space.Item(i)
-                    if entity.ObjectName != "AcDbBlockReference":
-                        continue
+                # -- 模型空间 --------------------------------------------
+                if include_model:
+                    step = "ModelSpace"
+                    u, s = self._collect_from_space(
+                        doc.ModelSpace, required_set, values
+                    )
+                    updated += u
+                    skipped += s
 
-                    step = f"GetAttributes[{i}]"
+                # -- 布局空间 --------------------------------------------
+                if include_layouts:
+                    step = "Layouts"
                     try:
-                        attrs = entity.GetAttributes()
-                    except Exception:
-                        continue
-
-                    if attrs is None or (hasattr(attrs, "__len__") and len(attrs) == 0):
-                        skipped += 1
-                        continue
-
-                    block_tags: set = set()
-                    attr_map: Dict[str, object] = {}
-                    for attr in attrs:
-                        tag = str(attr.TagString)
-                        block_tags.add(tag)
-                        attr_map[tag] = attr
-
-                    if required_set.issubset(block_tags):
-                        step = f"set_TextString[{i}]"
-                        for tag, new_value in values.items():
-                            if tag in attr_map:
-                                try:
-                                    attr_map[tag].TextString = new_value
-                                except Exception:
-                                    pass  # 常量属性不可写
-                        updated += 1
-                    else:
+                        layouts = doc.Layouts
+                        for layout in layouts:
+                            try:
+                                layout_name = str(layout.Name)
+                            except Exception:
+                                continue
+                            # 跳过模型布局（已单独处理）
+                            if layout_name.lower() == "model":
+                                continue
+                            step = f"Layout[{layout_name}]"
+                            try:
+                                layout_block = layout.Block
+                            except Exception:
+                                continue
+                            u, s = self._collect_from_space(
+                                layout_block, required_set, values
+                            )
+                            updated += u
+                            skipped += s
+                    except Exception as e:
+                        last_error = e
+                        # 布局遍历失败不会阻止整体任务，记录到 skipped
                         skipped += 1
 
                 step = "Save"
@@ -314,7 +373,8 @@ class CADEngine:
                 err_str = str(e)
                 if ("被呼叫方拒绝" in err_str
                         or "RPC_E_CALL_REJECTED" in err_str
-                        or "ModelSpace" in err_str):
+                        or "ModelSpace" in err_str
+                        or "Layout" in err_str):
                     time.sleep(1.0 + attempt * 0.8)
                     continue
                 # 其他错误直接返回，不重试

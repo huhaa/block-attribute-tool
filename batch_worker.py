@@ -25,12 +25,16 @@ class BatchWorker(QThread):
         dwg_files: List[str],
         required_tags: List[str],
         values: Dict[str, str],
+        include_model: bool = True,
+        include_layouts: bool = False,
         parent=None,
     ):
         super().__init__(parent)
         self.dwg_files = dwg_files
         self.required_tags = required_tags
         self.values = values
+        self.include_model = include_model
+        self.include_layouts = include_layouts
         self._cancelled = False
 
     # ----- 公共方法 ---------------------------------------------------
@@ -69,6 +73,8 @@ class BatchWorker(QThread):
                 dwg_path,
                 self.required_tags,
                 self.values,
+                include_model=self.include_model,
+                include_layouts=self.include_layouts,
             )
 
             self.file_done.emit(result)

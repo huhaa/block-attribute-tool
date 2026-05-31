@@ -49,7 +49,7 @@ from cad_engine import CADEngine
 class MainWindow(QMainWindow):
     """主窗口。"""
 
-    APP_TITLE = "块属性批量填写工具"
+    APP_TITLE = "DHB块属性批量填写工具"
 
     def __init__(self):
         super().__init__()
@@ -155,6 +155,16 @@ class MainWindow(QMainWindow):
 
         # -- 第 4 行：进度条 + 操作按钮 -------------------------------
         op_row = QHBoxLayout()
+
+        # 处理范围复选框
+        self.chk_model = QCheckBox("模型空间")
+        self.chk_model.setChecked(True)
+        self.chk_layout = QCheckBox("布局空间")
+        self.chk_layout.setChecked(False)
+        op_row.addWidget(self.chk_model)
+        op_row.addWidget(self.chk_layout)
+        op_row.addSpacing(12)
+
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setMinimumHeight(24)
@@ -363,6 +373,13 @@ class MainWindow(QMainWindow):
         if reply != QMessageBox.StandardButton.Yes:
             return
 
+        # ---- 校验处理范围 ---------------------------------------------
+        include_model = self.chk_model.isChecked()
+        include_layouts = self.chk_layout.isChecked()
+        if not include_model and not include_layouts:
+            QMessageBox.warning(self, "提示", "请至少勾选一个处理范围（模型空间或布局空间）。")
+            return
+
         # ---- 锁定 UI + 启动线程 -------------------------------------
         self._set_ui_busy(True)
 
@@ -370,6 +387,8 @@ class MainWindow(QMainWindow):
             dwg_files=list(self.dwg_files),
             required_tags=required_tags,
             values=values,
+            include_model=include_model,
+            include_layouts=include_layouts,
         )
         self.worker.progress.connect(self._log)
         self.worker.file_done.connect(self._on_file_result)
@@ -413,6 +432,8 @@ class MainWindow(QMainWindow):
         self.btn_add_files.setEnabled(not busy)
         self.btn_clear_files.setEnabled(not busy)
         self.btn_remove_sel.setEnabled(not busy)
+        self.chk_model.setEnabled(not busy)
+        self.chk_layout.setEnabled(not busy)
         self.btn_process.setEnabled(not busy)
         self.progress_bar.setVisible(busy)
         if busy:
