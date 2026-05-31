@@ -222,7 +222,7 @@ class MainWindow(QMainWindow):
 
     def _populate_attrs(self, info: dict[str, str | dict]):
         """将块属性填入表格。"""
-        self.tbl_attrs.setRowCount(0)
+        self.tbl_attrs.setRowCount(0) # 清空表格
         row = 0
         for tag, attr_data in info.items():
             if tag.startswith("__") and tag.endswith("__"):

@@ -19,6 +19,7 @@ from ui_main import MainWindow
 
 def main():
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
     app.setApplicationName("块属性批量填写工具")
 
     # 设置全局字体（Windows 下更清晰）

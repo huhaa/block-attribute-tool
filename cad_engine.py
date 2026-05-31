@@ -40,16 +40,17 @@ def _find_running_autocad():
     try:
         rot = pythoncom.GetRunningObjectTable()
         enum = rot.EnumRunning()
+        bind_ctx = pythoncom.CreateBindCtx()
         while True:
             try:
                 monikers = enum.Next(1)
                 if not monikers:
                     break
-                display = monikers[0].GetDisplayName(None, None)
+                display = monikers[0].GetDisplayName(bind_ctx, None)
                 if "autocad" in display.lower():
                     return rot.GetObject(monikers[0])
             except Exception:
-                break
+                continue  # 跳过本次失败，继续检查下一条
     except Exception:
         pass
     return None
@@ -82,7 +83,7 @@ class CADEngine:
         优先连接已运行的实例（任意版本），避免启动错误版本。
         """
         self._owns_com = True
-        pythoncom.CoInitialize()
+        pythoncom.CoInitialize() # 初始化 COM
 
         # 第一步：在所有 ProgID 中搜索已运行的实例
         for prog_id in _PROG_IDS:
@@ -122,7 +123,7 @@ class CADEngine:
     def close(self):
         """释放 COM 引用，不关闭 AutoCAD。"""
         try:
-            pythoncom.CoUninitialize()
+            pythoncom.CoUninitialize() # 释放 COM 引用
         except Exception:
             pass
         self.acad = None
@@ -151,7 +152,7 @@ class CADEngine:
 
         try:
             # 晚期绑定下 [out] 参数需传 None 占位，pywin32 在返回值元组中返回它们
-            raw = utility.GetEntity(None, None, prompt)
+            raw = utility.GetEntity(None, None, prompt) #(entity_object,pick_point,return_value)
             entity = raw[0] if isinstance(raw, tuple) else raw
 
             if entity is None:
