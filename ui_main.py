@@ -393,6 +393,7 @@ class MainWindow(QMainWindow):
         self.worker.progress.connect(self._log)
         self.worker.file_done.connect(self._on_file_result)
         self.worker.all_done.connect(self._on_all_done)
+        self.worker.finished.connect(self._on_worker_finished)
         self.worker.start()
 
     # ================================================================
@@ -411,8 +412,12 @@ class MainWindow(QMainWindow):
             self._log(f"  ✅ {fname} — 更新 {updated} 个块，跳过 {skipped} 个")
 
     def _on_all_done(self):
-        """全部处理完成。"""
+        """全部处理完成（业务逻辑完成）。"""
         self._set_ui_busy(False)
+
+    def _on_worker_finished(self):
+        """线程真正退出后清理 worker 对象。"""
+        self.worker.deleteLater()
         self.worker = None
 
     # ================================================================

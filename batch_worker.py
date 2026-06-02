@@ -52,8 +52,8 @@ class BatchWorker(QThread):
         engine = CADEngine()
         if not engine.connect():
             self.progress.emit("❌ 无法连接到 AutoCAD，请确认已安装并至少启动过一次。")
-            self.all_done.emit()
             pythoncom.CoUninitialize()
+            self.all_done.emit()
             return
 
         total = len(self.dwg_files)
